@@ -1,6 +1,7 @@
 
 import html
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from urllib.parse import quote
 
 import pandas as pd
@@ -227,7 +228,10 @@ if scan_button or "mobile_results" not in st.session_state:
         progress.progress((i + 1) / max(len(watchlist), 1))
 
     st.session_state["mobile_results"] = pd.DataFrame(results)
-    st.session_state["mobile_last_scan"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    st.session_state["mobile_last_scan"] = (
+    datetime.now(ZoneInfo("America/Chicago"))
+    .strftime("%Y-%m-%d %I:%M:%S %p %Z")
+)
 
 df = st.session_state.get("mobile_results", pd.DataFrame())
 
