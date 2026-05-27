@@ -1,14 +1,3 @@
-"""
-AI Stock Mobile App
-Run:
-    python -m streamlit run ai_stock_mobile_app.py
-
-requirements.txt:
-streamlit
-pandas
-yfinance
-pandas-ta
-"""
 
 import html
 from datetime import datetime
@@ -17,7 +6,6 @@ from urllib.parse import quote
 import pandas as pd
 import streamlit as st
 import yfinance as yf
-import pandas_ta as ta
 
 st.set_page_config(page_title="AI Stock Mobile", page_icon="📈", layout="centered")
 
@@ -28,22 +16,37 @@ DEFAULT_WATCHLIST = [
 ]
 
 
+def calculate_rsi(close: pd.Series, length: int = 14) -> pd.Series:
+    delta = close.diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    avg_gain = gain.ewm(alpha=1 / length, min_periods=length, adjust=False).mean()
+    avg_loss = loss.ewm(alpha=1 / length, min_periods=length, adjust=False).mean()
+    rs = avg_gain / avg_loss
+    return 100 - (100 / (1 + rs))
+
+
 @st.cache_data(ttl=3600)
 def load_stock_data(ticker: str, period: str = "1y"):
     df = yf.download(ticker, period=period, interval="1d", progress=False)
     if df.empty:
         return None
+
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
 
     df = df.dropna()
-    df["EMA20"] = ta.ema(df["Close"], length=20)
-    df["EMA50"] = ta.ema(df["Close"], length=50)
-    df["RSI14"] = ta.rsi(df["Close"], length=14)
+    df["EMA20"] = df["Close"].ewm(span=20, adjust=False).mean()
+    df["EMA50"] = df["Close"].ewm(span=50, adjust=False).mean()
+    df["RSI14"] = calculate_rsi(df["Close"], 14)
 
-    macd = ta.macd(df["Close"], fast=12, slow=26, signal=9)
-    df["MACD_Hist"] = macd["MACDh_12_26_9"] if macd is not None else 0
+    ema12 = df["Close"].ewm(span=12, adjust=False).mean()
+    ema26 = df["Close"].ewm(span=26, adjust=False).mean()
+    macd = ema12 - ema26
+    macd_signal = macd.ewm(span=9, adjust=False).mean()
+    df["MACD_Hist"] = macd - macd_signal
     df["Volume20Avg"] = df["Volume"].rolling(20).mean()
+
     return df.dropna()
 
 
@@ -186,40 +189,20 @@ def card(row):
     notes = html.escape(str(row["Notes"]))
 
     st.markdown(
-        f"""
-        <div style="
-            border:1px solid #d9d9d9;
-            border-radius:18px;
-            padding:14px;
-            margin-bottom:12px;
-            box-shadow:0 2px 8px rgba(0,0,0,0.08);
-            background-color:white;">
+        f'''
+        <div style="border:1px solid #d9d9d9;border-radius:18px;padding:14px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);background-color:white;">
             <h3 style="margin:0 0 8px 0;">{status_emoji(category)} {ticker} — {category}</h3>
-            <p style="margin:6px 0;">
-                <b>Price:</b> ${row['Price']} &nbsp;
-                <b>Score:</b> {row['Score']}/9 &nbsp;
-                <b>Grade:</b> {row['Grade']}
-            </p>
-            <p style="margin:6px 0;">
-                <b>RSI:</b> {row['RSI']} &nbsp;
-                <b>EMA20:</b> {row['EMA20']} &nbsp;
-                <b>EMA50:</b> {row['EMA50']}
-            </p>
-            <p style="margin:6px 0;">
-                <b>Dist to EMA20:</b> {row['Distance_to_EMA20_%']}% &nbsp;
-                <b>MACD Hist:</b> {row['MACD_Hist']} &nbsp;
-                <b>Vol Ratio:</b> {row['Volume_Ratio']}
-            </p>
+            <p style="margin:6px 0;"><b>Price:</b> ${row['Price']} &nbsp; <b>Score:</b> {row['Score']}/9 &nbsp; <b>Grade:</b> {row['Grade']}</p>
+            <p style="margin:6px 0;"><b>RSI:</b> {row['RSI']} &nbsp; <b>EMA20:</b> {row['EMA20']} &nbsp; <b>EMA50:</b> {row['EMA50']}</p>
+            <p style="margin:6px 0;"><b>Dist to EMA20:</b> {row['Distance_to_EMA20_%']}% &nbsp; <b>MACD Hist:</b> {row['MACD_Hist']} &nbsp; <b>Vol Ratio:</b> {row['Volume_Ratio']}</p>
             <p style="margin:6px 0;"><b>Notes:</b> {notes}</p>
             <p style="margin:8px 0 0 0;">
-                <a href="{row['Yahoo Chart']}" target="_blank">Yahoo Chart</a>
-                &nbsp;|&nbsp;
-                <a href="{row['Yahoo Quote']}" target="_blank">Yahoo Quote</a>
-                &nbsp;|&nbsp;
+                <a href="{row['Yahoo Chart']}" target="_blank">Yahoo Chart</a> | 
+                <a href="{row['Yahoo Quote']}" target="_blank">Yahoo Quote</a> | 
                 <a href="{row['Fidelity']}" target="_blank">Fidelity</a>
             </p>
         </div>
-        """,
+        ''',
         unsafe_allow_html=True,
     )
 
@@ -293,10 +276,4 @@ else:
             card(row)
 
         csv = df.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            "Download CSV",
-            data=csv,
-            file_name="ai_stock_mobile_results.csv",
-            mime="text/csv",
-            use_container_width=True,
-        )
+        st.download_button("Download CSV", data=csv, file_name="ai_stock_mobile_results.csv", mime="text/csv", use_container_width=True)
