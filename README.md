@@ -1,4 +1,9 @@
-adding ticker to app. see below procedure:
+
+1. Run code link: https://share.streamlit.io
+   click the vertical 3 dots and reboot after python code has been updated
+   
+
+3. adding ticker to app. see below procedure:
 Because the app’s watchlist box is loaded from this code:
 
 DEFAULT_WATCHLIST = [
