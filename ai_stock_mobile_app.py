@@ -12,9 +12,8 @@ import yfinance as yf
 st.set_page_config(page_title="AI Stock Mobile", page_icon="📈", layout="centered")
 
 DEFAULT_WATCHLIST = [
-    "VUG", "NVDA", "SMH", "VGT", "QQQM", "VOO", "ADBE",
-    "AMD", "AVGO", "MSFT", "META", "GOOGL", "ETSY",
-    "TSM", "MU", "ARM", "OXY", "MO", "HRL"
+    "VUG", "NVDA", "SMH", "VGT", "QQQM", "VOO", 
+    "AVGO", "MSFT", "META", "GOOGL", "TSM", "MU", "MO", 
 ]
 
 
